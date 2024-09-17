@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+<div class="container" style="margin-top: 15px">
+    <div class="weather__header">
+        <form class="weather__search" th:action="@{/weather}" method="get" id="weatherForm">
+            <input type="text" placeholder="Şehir ismi Giriniz.." class="weather__searchform" id="city" name="city" required oninput="fetchCitySuggestions()">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <div id="suggestions"></div> <!-- Öneri listesi için ekleme -->
+        </form>
+        <div class="weather__units">
+            <span class="weather_unit_celsius active" onclick="showCelsius()">°C</span>
+            <span class="weather_unit_fahrenheit" onclick="showFahrenheit()">°F</span>
+        </div>
+    </div>
+    <div class="weather__body">
+        <h1 class="weather__city" th:text="${city}"></h1>
+        <div class="weather__datetime" th:text="${date}"></div>
+        <div class="weather__icon" id="weatherIcon"> </div>
+        <p class="weather__temperature" id="temperature" th:text="'Sıcaklık: ' + ${temperature} + '°C'"></p>
+        <div class="weather__minmax">
+            <p th:text="'En düşük: ' + ${minTemperature} + '°C'"></p>
+            <p th:text="'En yüksek: ' + ${maxTemperature} + '°C'"></p>
+        </div>
+    </div>
+    <div class="weather__info">
+        <div class="weather__card">
+            <i class="fa-solid fa-temperature-full"></i>
+            <div>
+                <p>Hissedilen Sıcaklık</p>
+                <p class="weather__realfeel" th:text="${feels_like} + '°C'"></p>
+            </div>
+        </div>
+        <div class="weather__card">
+            <i class="fa-solid fa-droplet"></i>
+            <div>
+                <p>Nem Oranı</p>
+                <p class="weather__humidity" th:text="${humidity} + '%'"></p>
+            </div>
+        </div>
+        <div class="weather__card">
+            <i class="fa-solid fa-wind"></i>
+            <div>
+                <p>Rüzgar Hızı</p>
+                <p class="weather__wind" th:text="${wind_speed} + ' m/s N'"></p>
+            </div>
+        </div>
+        <div class="weather__card">
+            <i class="fa-solid fa-gauge-high"></i>
+            <div>
+                <p>Basınç Miktarı</p>
+                <p class="weather__pressure" th:text="${pressure} + ' hPa'"></p>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://kit.fontawesome.com/a692e1c39f.js" crossorigin="anonymous"></script>
+<!-- Weather condition değerini gizli bir alanda sakla -->
+<input type="hidden" id="hiddenWeatherCondition" th:value="${weatherCondition}">
+
+<script>
+    let temperatureCelsius = /*[[${temperature}]]*/ 0;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // Gizli alandan weatherCondition değerini al
+        let weatherCondition = document.getElementById("hiddenWeatherCondition").value;
+
+        temperatureCelsius = parseFloat(document.getElementById("temperature").textContent.match(/[-+]?[0-9]*\.?[0-9]+/)[0]);
+        updateWeatherIcon(weatherCondition);
+
+        // Sayfa yüklendiğinde Celsius birimini seçili olarak ayarla
+        showCelsius();
+    });
+
+    function showCelsius() {
+        const tempElement = document.getElementById("temperature");
+        tempElement.textContent = `Sıcaklık: ${temperatureCelsius.toFixed(2)}°C`;
+        setActiveUnit('celsius');
+    }
+
+    function showFahrenheit() {
+        const tempElement = document.getElementById("temperature");
+        const temperatureFahrenheit = (temperatureCelsius * 9 / 5) + 32;
+        tempElement.textContent = `Sıcaklık: ${temperatureFahrenheit.toFixed(2)}°F`;
+        setActiveUnit('fahrenheit');
+    }
+
+    function setActiveUnit(unit) {
+        const celsiusElement = document.querySelector('.weather_unit_celsius');
+        const fahrenheitElement = document.querySelector('.weather_unit_fahrenheit');
+        if (unit === 'celsius') {
+            celsiusElement.classList.add('active');
+            fahrenheitElement.classList.remove('active');
+        } else {
+            celsiusElement.classList.remove('active');
+            fahrenheitElement.classList.add('active');
+        }
+    }
+
+    function updateWeatherIcon(weatherCondition) {
+        const weatherIconElement = document.getElementById("weatherIcon");
+
+        // Hava durumuna göre ikonu güncelle
+        switch (weatherCondition) {
+            case "sunny":
+                weatherIconElement.innerHTML = '<img src="/images/sunny.png" class="large_icon">';
+                break;
+            case "clouds":
+                weatherIconElement.innerHTML = '<img src="/images/cloudy.png">';
+                break;
+            case "Yagmurlu":
+                weatherIconElement.innerHTML = '<img src="/images/rainy.png">';
+                break;
+            case "Firtinali":
+                weatherIconElement.innerHTML = '<img src="/images/thunderstorm.png">';
+                break;
+            case "Karli":
+                weatherIconElement.innerHTML = '<img src="/images/snowy.png">';
+                break;
+            case "Sisli":
+                weatherIconElement.innerHTML = '<img src="/images/foggy.png">';
+                break;
+            default:
+                weatherIconElement.innerHTML = '<img src="/images/unknown.png">';
+                break;
+        }
+    }
+
+    // Şehir önerilerini getiren fonksiyon
+    function fetchCitySuggestions() {
+        const query = document.getElementById("city").value;
+        if (query.length < 3) {
+            document.getElementById("suggestions").innerHTML = "";
+            return;
+        }
+        fetch(`/city-suggestions?query=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                const suggestions = document.getElementById("suggestions");
+                suggestions.innerHTML = "";
+                data.forEach(city => {
+                    const suggestionItem = document.createElement("div");
+                    suggestionItem.textContent = city;
+                    suggestionItem.onclick = () => selectCity(city);
+                    suggestions.appendChild(suggestionItem);
+                });
+            });
+    }
+
+    // Şehir seçildiğinde input alanına yazdıran ve formu gönderen fonksiyon
+    function selectCity(city) {
+        document.getElementById("city").value = city;
+        document.getElementById("suggestions").innerHTML = "";
+        document.getElementById("weatherForm").submit(); // Formu otomatik olarak gönder
+    }
+</script>
+</body>
+</html>
